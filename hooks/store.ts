@@ -14,7 +14,13 @@ const enableStreamMessagesAtom = atomWithStorage<boolean>('enableStreamMessages'
 const systemPromptContentAtom = atomWithStorage('systemPrompt', '');
 const enableSystemPrompt = atomWithStorage('enableSystemPrompt', false);
 const enablePluginsAtom = atomWithStorage('enablePlugins', false);
-const noContextConversationAtom = atomWithStorage('no-context-conversation', false);
+const contextModeAtom = atomWithStorage<{
+    enable: boolean;
+    contextCount: number;
+}>('context-mode', {
+    enable: false,
+    contextCount: 0,
+});
 
 // Text to Speech Config
 const textToSpeechConfigAtom = atomWithStorage('textToSpeechConfig', {
@@ -48,7 +54,7 @@ const openAIConfigAtom = atomWithStorage<OpenAIConfigProps>('openAIConfig', {
 const azureConfigAtom = atomWithStorage('azureConfig', {
     apiKey: '',
     apiEndpoint: '',
-    apiModel: 'gpt-3.5-turbo',
+    apiModel: 'gpt-4',
     apiTemperature: 0.3,
     apiDeploymentName: '',
 });
@@ -85,7 +91,7 @@ export default {
     systemPromptContentAtom,
     enableSystemPrompt,
     enablePluginsAtom,
-    noContextConversationAtom,
+    contextModeAtom,
     textToSpeechConfigAtom,
     searchConfigAtom,
     serviceProviderAtom,

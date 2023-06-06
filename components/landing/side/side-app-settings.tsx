@@ -2,8 +2,6 @@
 
 import { useEffect, useState } from 'react';
 
-import Link from 'next/link';
-
 import { useTranslations } from 'next-intl';
 
 import { User } from '@prisma/client';
@@ -13,25 +11,104 @@ import { toast } from 'react-hot-toast';
 import store from '@/hooks/store';
 import { useAtom } from 'jotai';
 
-import { FiSettings, FiClipboard } from 'react-icons/fi';
+import Tippy from '@tippyjs/react';
+
+import { MdInfoOutline } from 'react-icons/md';
+import { TbAdjustmentsHorizontal } from 'react-icons/tb';
 
 import { Badge } from '@/components/ui/badge';
-import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectGroup, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetFooter, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 
-import { claudeModelConfig } from '@/config/provider/claude.config';
-import { openAIModelConfig } from '@/config/provider/openai.config';
-import { cohereModelConfig } from '@/config/provider/cohere.config';
-import { huggingFaceModelConfig } from '@/config/provider/huggingface.config';
+import TeamServiceProvider from './service-provider/team';
+import AzureServiceProvider from './service-provider/azure';
+import OpenAIServiceProvider from './service-provider/openai';
+import ClaudeServiceProvider from './service-provider/claude';
+import CustomServiceProvider from './service-provider/custom';
+import CohereServiceProvider from './service-provider/cohere';
+import ExtensionServiceProvider from './service-provider/extension';
+import HuggingFaceServiceProvider from './service-provider/huggingface';
 
 const SideAppSettings = ({ user }: { user: User | null }) => {
     const t = useTranslations('landing');
+
+    const [isSheetOpen, setIsSheetOpen] = useState<boolean>(false);
+
+    // Text To Speech
+    const synth = typeof window !== 'undefined' && window.speechSynthesis;
+    const voices = synth && synth.getVoices();
+
+    const [ttsVoice, setTTSVoice] = useState<string>('');
+    const [ttsSpeed, setTTSSpeed] = useState<number>(1.0);
+    const [ttsPitch, setTTSPitch] = useState<number>(1.0);
+    const [ttsSample, setTTSSample] = useState<string>('Hello. I am your virtual AI assistant.');
+
+    const [ttsConfig, setTTSConfig] = useAtom(store.textToSpeechConfigAtom);
+
+    const [isSpeaking, setIsSpeaking] = useState(false);
+
+    const [isSendKeyEnter, setIsSendKeyEnter] = useAtom(store.isSendKeyEnterAtom);
+
+    // Search
+    const [searchEngine, setSearchEngine] = useState<string>(searchEnginesList[0].name);
+    const [searchEngineID, setSearchEngineID] = useState<string>('');
+    const [searchAPIKey, setSearchAPIKey] = useState<string>('');
+
+    const [searchConfig, setSearchConfig] = useAtom(store.searchConfigAtom);
+
+    useEffect(() => {
+        if (synth) {
+            const loadVoices = async () => {
+                const voices = await new Promise<SpeechSynthesisVoice[]>((resolve) => {
+                    const voiceList = synth.getVoices();
+                    if (voiceList.length) {
+                        resolve(voiceList);
+                    } else {
+                        synth.addEventListener('voiceschanged', () => {
+                            resolve(synth.getVoices());
+                        });
+                    }
+                });
+
+                setTTSVoice(voices[0]?.name);
+            };
+
+            loadVoices();
+        }
+    }, [synth]);
+
+    useEffect(() => {
+        if (ttsConfig) {
+            setTTSVoice(ttsConfig.voice);
+            setTTSSpeed(ttsConfig.speed);
+            setTTSPitch(ttsConfig.pitch);
+        }
+    }, [ttsConfig]);
+
+    useEffect(() => {
+        if (searchConfig) {
+            setSearchEngine(searchConfig.searchEngine);
+            setSearchEngineID(searchConfig.searchEngineID);
+            setSearchAPIKey(searchConfig.searchAPIKey);
+        }
+    }, [searchConfig]);
+
+    const onCancel = () => {
+        setIsSheetOpen(false);
+    };
+
+    const handleSwitchSendMessageKey = () => {
+        setIsSendKeyEnter(!isSendKeyEnter);
+
+        toast.success(`${t('Send message key changed to')} ${isSendKeyEnter ? 'Enter' : 'Shift + Enter'}`);
+    };
 
     const [isDialogOpen, setIsDialogOpen] = useState<boolean>(false);
 
@@ -124,7 +201,7 @@ const SideAppSettings = ({ user }: { user: User | null }) => {
     switch (currentServiceProvider) {
         case 'OpenAI':
             ProviderConfig = (
-                <OpenAICard
+                <OpenAIServiceProvider
                     apiKey={apiKey}
                     apiEndpoint={apiEndpoint}
                     apiModel={apiModel as OpenAIModel}
@@ -140,11 +217,11 @@ const SideAppSettings = ({ user }: { user: User | null }) => {
             );
             break;
         case 'Hugging Face':
-            ProviderConfig = <HuggingFaceCard accessToken={accessToken} huggingFaceModel={huggingFaceModel} setAccessToken={setAccessToken} setHuggingFaceModel={setHuggingFaceModel} />;
+            ProviderConfig = <HuggingFaceServiceProvider accessToken={accessToken} huggingFaceModel={huggingFaceModel} setAccessToken={setAccessToken} setHuggingFaceModel={setHuggingFaceModel} />;
             break;
         case 'Claude':
             ProviderConfig = (
-                <ClaudeCard
+                <ClaudeServiceProvider
                     claudeAPIKey={claudeAPIKey}
                     claudeAPIModel={claudeAPIModel}
                     claudeAPITemperature={claudeAPITemperature}
@@ -156,7 +233,7 @@ const SideAppSettings = ({ user }: { user: User | null }) => {
             break;
         case 'Azure':
             ProviderConfig = (
-                <AzureCard
+                <AzureServiceProvider
                     azureAPIKey={azureAPIKey}
                     azureAPIModel={azureAPIModel}
                     azureAPIEndpoint={azureAPIEndpoint}
@@ -171,16 +248,16 @@ const SideAppSettings = ({ user }: { user: User | null }) => {
             );
             break;
         case 'Custom':
-            ProviderConfig = <CustomCard />;
+            ProviderConfig = <CustomServiceProvider />;
             break;
         case 'Team':
-            ProviderConfig = <TeamCard accessCode={accessCode} setAccessCode={setAccessCode} />;
+            ProviderConfig = <TeamServiceProvider accessCode={accessCode} setAccessCode={setAccessCode} />;
             break;
         case 'Cohere':
-            ProviderConfig = <CohereCard cohereAPIKey={cohereAPIKey} setCohereAPIKey={setCohereAPIKey} cohereModel={cohereModel} setCohereModel={setCohereModel} />;
+            ProviderConfig = <CohereServiceProvider cohereAPIKey={cohereAPIKey} setCohereAPIKey={setCohereAPIKey} cohereModel={cohereModel} setCohereModel={setCohereModel} />;
             break;
         case 'Extension':
-            ProviderConfig = <ExtensionCard />;
+            ProviderConfig = <ExtensionServiceProvider />;
             break;
         default:
             ProviderConfig = null;
@@ -237,20 +314,35 @@ const SideAppSettings = ({ user }: { user: User | null }) => {
     };
 
     const onSave = () => {
-        if (currentServiceProvider == 'OpenAI') {
-            if (!useCloudSettings) {
-                if (!apiKey) {
-                    toast.error(t('Please fill in all required fields'));
-                    return;
-                }
+        setTTSConfig({
+            voice: ttsVoice,
+            speed: ttsSpeed,
+            pitch: ttsPitch,
+        });
 
-                if (apiEndpoint != '') {
-                    if (!(apiEndpoint.startsWith('https://') || apiEndpoint.startsWith('http://'))) {
-                        toast.error(t('Invalid API Endpoint'));
-                        return;
-                    }
-                }
+        setSearchConfig({
+            searchEngine: searchEngine,
+            searchEngineID: searchEngineID,
+            searchAPIKey: searchAPIKey,
+        });
+
+        setIsSheetOpen(false);
+
+        if (currentServiceProvider == 'OpenAI' && !useCloudSettings) {
+            if (!apiKey) {
+                toast.error(t('Please fill in all required fields'));
+                return;
             }
+
+            if (apiEndpoint != '' && !(apiEndpoint.startsWith('https://') || apiEndpoint.startsWith('http://'))) {
+                toast.error(t('Invalid API Endpoint'));
+                return;
+            }
+        }
+
+        if (currentServiceProvider == 'Azure' && (!azureAPIKey || !azureAPIEndpoint || !azureAPIDeploymentName)) {
+            toast.error(t('Please fill in all required fields'));
+            return;
         }
 
         if (!user && currentServiceProvider == 'Team') {
@@ -312,477 +404,181 @@ const SideAppSettings = ({ user }: { user: User | null }) => {
     };
 
     return (
-        <Dialog open={isDialogOpen} onOpenChange={(isOpen) => setIsDialogOpen(isOpen)}>
-            <DialogTrigger asChild>
-                <button className='inline-flex items-center space-x-1 rounded p-1 px-1 transition duration-200 ease-in-out hover:bg-gray-200 dark:hover:bg-stone-600' aria-label='app-settings'>
-                    <FiSettings />
+        <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+            <SheetTrigger asChild>
+                <button className='inline-flex items-center space-x-1 rounded p-1 px-1 transition duration-200 ease-in-out hover:bg-gray-200 dark:hover:bg-stone-700' aria-label='app-settings'>
+                    <TbAdjustmentsHorizontal />
                 </button>
-            </DialogTrigger>
-            <DialogContent className='flex flex-col justify-between space-y-3 overflow-y-auto md:h-[800px] md:w-[500px]'>
-                <DialogHeader>
-                    <DialogTitle>{t('App Settings')}</DialogTitle>
-                </DialogHeader>
-                <div className='flex h-full flex-col justify-start space-y-3'>
+            </SheetTrigger>
+            <SheetContent size='default' className='w-full overflow-auto md:w-5/12 xl:w-1/3'>
+                <SheetHeader>
+                    <SheetTitle>{t('App Settings')}</SheetTitle>
+                    <SheetDescription>
+                        {t('You are using')} <span className='font-medium'>{serviceProvider}</span>
+                    </SheetDescription>
+                </SheetHeader>
+                <div className='my-4 space-y-4'>
                     <div className='space-y-3'>
-                        <div className='space-y-2'>
-                            <Label className='font-medium'>{t('AI Service Provider')}</Label>
-                            <Select value={currentServiceProvider} onValueChange={(value: string) => setCurrentServiceProvider(value as ServiceProviderProps)}>
-                                <SelectTrigger>
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {serviceProviderList
-                                        // .sort((a, b) => a.name.localeCompare(b.name))
-                                        .map((service, index) => (
-                                            <SelectGroup key={index}>
-                                                <SelectItem value={service.value} className='text-sm' disabled={service.status == 0}>
-                                                    {service.name}{' '}
-                                                    {service.status !== 1 &&
-                                                        (service.status == 0 ? (
-                                                            <Badge variant='outline' className='font-normal text-red-500'>
-                                                                {t('Planned')}
-                                                            </Badge>
-                                                        ) : (
-                                                            <Badge variant='outline' className='font-normal text-amber-500'>
-                                                                {t('Beta')}
-                                                            </Badge>
-                                                        ))}
-                                                </SelectItem>
-                                            </SelectGroup>
-                                        ))}
-                                </SelectContent>
-                            </Select>
+                        <div className='flex items-center space-x-1'>
+                            <Switch checked={isSendKeyEnter} onCheckedChange={handleSwitchSendMessageKey} />
+                            <Label className='px-1 font-normal'>{t('Send Message using Enter Key')}</Label>
+                            <Tippy content={`Current: ${isSendKeyEnter ? 'Enter' : 'Shift + Enter'}`}>
+                                <button>
+                                    <MdInfoOutline className='text-lg' />
+                                </button>
+                            </Tippy>
                         </div>
-                        <div className='space-y-3 overflow-y-auto rounded border p-3'>{ProviderConfig}</div>
                     </div>
+                    <Separator />
+                    <Tabs defaultValue='provider' className='h-full w-full space-y-5'>
+                        <TabsList>
+                            <TabsTrigger value='provider'>{t('Service Provider')}</TabsTrigger>
+                            <TabsTrigger value='tts'>{t('Text To Speech')}</TabsTrigger>
+                            <TabsTrigger value='search'>{t('Web Search')}</TabsTrigger>
+                        </TabsList>
+                        <TabsContent value='provider' className='px-2'>
+                            <div className='flex h-full flex-col justify-start space-y-3'>
+                                <div className='space-y-3'>
+                                    <div className='space-y-2'>
+                                        <Label className='font-medium'>{t('AI Service Provider')}</Label>
+                                        <Select value={currentServiceProvider} onValueChange={(value: string) => setCurrentServiceProvider(value as ServiceProviderProps)}>
+                                            <SelectTrigger>
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {serviceProviderList
+                                                    // .sort((a, b) => a.name.localeCompare(b.name))
+                                                    .map((service, index) => (
+                                                        <SelectGroup key={index}>
+                                                            <SelectItem value={service.value} className='text-sm' disabled={service.status == 0}>
+                                                                {service.name}{' '}
+                                                                {service.status !== 1 &&
+                                                                    (service.status == 0 ? (
+                                                                        <Badge variant='outline' className='font-normal text-red-500'>
+                                                                            {t('Planned')}
+                                                                        </Badge>
+                                                                    ) : (
+                                                                        <Badge variant='outline' className='font-normal text-amber-500'>
+                                                                            {t('Beta')}
+                                                                        </Badge>
+                                                                    ))}
+                                                            </SelectItem>
+                                                        </SelectGroup>
+                                                    ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className='space-y-3 overflow-y-auto rounded border p-3'>{ProviderConfig}</div>
+                                </div>
+                            </div>
+                        </TabsContent>
+                        <TabsContent value='tts' className='px-2'>
+                            {voices && voices.length > 0 ? (
+                                <div className='space-y-6'>
+                                    <div className='flex flex-row items-center justify-between space-x-1'>
+                                        <Label>{t('Voice')}</Label>
+                                        <Select value={ttsVoice} onValueChange={(value: string) => setTTSVoice(value)}>
+                                            <SelectTrigger className='w-[300px]'>
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent className='h-[300px] overflow-auto'>
+                                                {voices.map((voice) => {
+                                                    return (
+                                                        <SelectItem key={voice.name} value={voice.name}>
+                                                            {voice.name} ({voice.lang})
+                                                        </SelectItem>
+                                                    );
+                                                })}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className='flex flex-col space-y-5'>
+                                        <Label>
+                                            {t('Speaking Speed')}: {ttsSpeed}
+                                        </Label>
+                                        <Slider min={0.1} max={10} step={0.1} value={[ttsSpeed]} onValueChange={([value]) => setTTSSpeed(value)} />
+                                    </div>
+                                    <Separator />
+                                    <div className='flex flex-col space-y-2'>
+                                        <Label>{t('Sample')}</Label>
+                                        <Input value={ttsSample} onChange={(e) => setTTSSample(e.target.value)} />
+                                        <div>
+                                            <Button
+                                                onClick={() => {
+                                                    setIsSpeaking(true);
+                                                    const utterance = new SpeechSynthesisUtterance(ttsSample);
+                                                    utterance.voice = voices.find((voice) => voice.name === ttsVoice) || null;
+                                                    utterance.rate = ttsSpeed;
+                                                    utterance.pitch = ttsPitch;
+                                                    synth && synth.speak(utterance);
+                                                    utterance.onend = () => setIsSpeaking(false);
+                                                }}
+                                                disabled={isSpeaking}
+                                                className='inline-flex items-center justify-center space-x-2'
+                                            >
+                                                <span>{t('Speak')}</span>
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div>
+                                    <p>{t('Text to Speech is not supported in your browser')}</p>
+                                </div>
+                            )}
+                        </TabsContent>
+                        <TabsContent value='search'>
+                            <div className='space-y-3'>
+                                <div>
+                                    <Label>{t('Search Engine')}</Label>
+                                    <Select value={searchEngine} onValueChange={(value: string) => setSearchEngine(value)}>
+                                        <SelectTrigger className='w-full'>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {searchEnginesList.map((engine) => {
+                                                return (
+                                                    <SelectItem key={engine.value} value={engine.value}>
+                                                        {engine.name}
+                                                    </SelectItem>
+                                                );
+                                            })}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div>
+                                    <Label>Search Engine ID</Label>
+                                    <Input placeholder='55b885......' value={searchEngineID} onChange={(e) => setSearchEngineID(e.target.value)} />
+                                </div>
+                                <div>
+                                    <Label>Search API Key</Label>
+                                    <Input placeholder='AIzaSyB......' value={searchAPIKey} onChange={(e) => setSearchAPIKey(e.target.value)} />
+                                </div>
+                            </div>
+                        </TabsContent>
+                    </Tabs>
                 </div>
-                <DialogFooter>
-                    <Button type='submit' variant='destructive' onClick={onReset}>
-                        {t('Reset')}
+                <SheetFooter>
+                    <Button type='submit' variant='destructive' onClick={onCancel}>
+                        {t('Cancel')}
                     </Button>
                     <Button type='submit' variant='outline' onClick={onSave}>
                         {t('Save')}
                     </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+                </SheetFooter>
+            </SheetContent>
+        </Sheet>
     );
 };
 
 export default SideAppSettings;
 
-const OpenAICard = ({
-    apiKey,
-    apiEndpoint,
-    apiModel,
-    apiTemperature,
-    setApiKey,
-    setApiEndpoint,
-    setApiModel,
-    setApiTemperature,
-    user,
-    useCloudSettings,
-    setUseCloudSettings,
-}: {
-    apiKey: string;
-    apiEndpoint: string;
-    apiModel: OpenAIModel;
-    apiTemperature: number;
-    setApiKey: (apiKey: string) => void;
-    setApiEndpoint: (apiEndpoint: string) => void;
-    setApiModel: (apiModel: OpenAIModel) => void;
-    setApiTemperature: (apiTemperature: number) => void;
-    user: User | null;
-    useCloudSettings: boolean;
-    setUseCloudSettings: (useCloudSettings: boolean) => void;
-}) => {
-    const t = useTranslations('landing');
-
-    if (user && useCloudSettings) {
-        setApiKey(user?.openAIKey || '');
-        setApiEndpoint('https://api.openai.com');
-    }
-
-    useEffect(() => {
-        if (!user) {
-            setUseCloudSettings(false);
-        }
-    }, [setUseCloudSettings, user]);
-
-    return (
-        <>
-            <Alert>
-                <FiClipboard />
-                <AlertTitle>{t('Goodwill Reminders')}</AlertTitle>
-                <AlertDescription>
-                    You need to provide the{' '}
-                    <Link href='https://platform.openai.com/account/api-keys' target='_blank' className='underline'>
-                        OpenAI API Key
-                    </Link>{' '}
-                    to use this service, or use a similar API interface such as{' '}
-                    <Link href='https://api2d.com/' target='_blank' className='underline'>
-                        API2D
-                    </Link>
-                    .
-                </AlertDescription>
-            </Alert>
-            {user && (
-                <div className='flex items-center justify-between'>
-                    <Label>{t('Use Cloud Settings')}</Label>
-                    <Switch checked={useCloudSettings} onCheckedChange={() => setUseCloudSettings(!useCloudSettings)} />
-                </div>
-            )}
-            <div className='h-full space-y-3'>
-                <div className='space-y-1'>
-                    <Label className='font-normal'>GPT Model</Label>
-                    <Select value={apiModel} onValueChange={(value) => setApiModel(value as OpenAIModel)}>
-                        <SelectTrigger>
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {openAIModelConfig.map((model, index) => {
-                                return (
-                                    <SelectItem key={index} value={model.model} className='text-sm'>
-                                        {model.model}
-                                    </SelectItem>
-                                );
-                            })}
-                        </SelectContent>
-                    </Select>
-                </div>
-            </div>
-            <div className='space-y-1'>
-                <Label className='font-normal'>API Key</Label>
-                <Input placeholder='sk-' disabled={useCloudSettings} value={useCloudSettings ? user?.openAIKey || 'not API saved in cloud' : apiKey} onChange={(e) => setApiKey(e.target.value)} />
-            </div>
-            <div className='space-y-1'>
-                <Label className='font-normal'>API Endpoint</Label>
-                <Input placeholder='https://api.openai.com' disabled={useCloudSettings} value={apiEndpoint} onChange={(e) => setApiEndpoint(e.target.value)} />
-            </div>
-            <div className='space-y-3'>
-                <Label className='font-normal'>Temperature: {apiTemperature}</Label>
-                <div className='flex flex-col space-y-1'>
-                    <Slider max={2} step={0.1} value={[apiTemperature]} onValueChange={([e]) => setApiTemperature(e)} />
-                    <div className='flex justify-between text-xs text-gray-500'>
-                        <p>{t('Stable')}</p>
-                        <p>{t('Standard')}</p>
-                        <p>{t('Creative')}</p>
-                    </div>
-                </div>
-            </div>
-        </>
-    );
-};
-
-const HuggingFaceCard = ({
-    accessToken,
-    huggingFaceModel,
-    setAccessToken,
-    setHuggingFaceModel,
-}: {
-    accessToken: string;
-    huggingFaceModel: string;
-    setAccessToken: (accessToken: string) => void;
-    setHuggingFaceModel: (huggingFaceModel: string) => void;
-}) => {
-    const t = useTranslations('landing');
-
-    return (
-        <>
-            <Alert>
-                <FiClipboard />
-                <AlertTitle>{t('Goodwill Reminders')}</AlertTitle>
-                <AlertDescription>
-                    You need to provide the{' '}
-                    <Link href='https://huggingface.co/settings/tokens' target='_blank' className='underline'>
-                        Hugging Face Access Token
-                    </Link>{' '}
-                    to use this service.
-                </AlertDescription>
-            </Alert>
-            <div className='space-y-1'>
-                <Label className='px-1 font-medium'>Model</Label>
-                <Select value={huggingFaceModel} onValueChange={(value) => setHuggingFaceModel(value)}>
-                    <SelectTrigger>
-                        <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {huggingFaceModelConfig.map((model, index) => {
-                            return (
-                                <SelectItem key={index} value={model.model} className='text-sm'>
-                                    {model.model}
-                                </SelectItem>
-                            );
-                        })}
-                    </SelectContent>
-                </Select>
-            </div>
-            <div className='space-y-1'>
-                <Label className='px-1 font-medium'>Access Token</Label>
-                <Input placeholder='hf_xxxxxx' value={accessToken} onChange={(e) => setAccessToken(e.target.value)} />
-            </div>
-        </>
-    );
-};
-
-const ClaudeCard = ({
-    claudeAPIKey,
-    claudeAPIModel,
-    claudeAPITemperature,
-    setClaudeAPIKey,
-    setClaudeAPIModel,
-    setClaudeAPITemperature,
-}: {
-    claudeAPIKey: string;
-    claudeAPIModel: string;
-    claudeAPITemperature: number;
-    setClaudeAPIKey: (claudeAPIKey: string) => void;
-    setClaudeAPIModel: (claudeAPIModel: OpenAIModel) => void;
-    setClaudeAPITemperature: (claudeAPITemperature: number) => void;
-}) => {
-    const t = useTranslations('landing');
-
-    return (
-        <>
-            <Alert>
-                <FiClipboard />
-                <AlertTitle>{t('Goodwill Reminders')}</AlertTitle>
-                <AlertDescription>
-                    You need to provide the{' '}
-                    <Link href='https://console.anthropic.com/account/keys' target='_blank' className='underline'>
-                        Claude API Key
-                    </Link>{' '}
-                    to use this service. Sign up for waitlist{' '}
-                    <Link href='https://www.anthropic.com/product' target='_blank' className='underline'>
-                        here
-                    </Link>
-                    .
-                </AlertDescription>
-            </Alert>
-            <div className='h-full space-y-3'>
-                <div className='space-y-1'>
-                    <Label className='font-normal'>API Model</Label>
-                    <Select value={claudeAPIModel} onValueChange={(value) => setClaudeAPIModel(value as OpenAIModel)}>
-                        <SelectTrigger>
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {claudeModelConfig.map((model, index) => {
-                                return (
-                                    <SelectItem key={index} value={model.model} className='text-sm'>
-                                        {model.model}
-                                    </SelectItem>
-                                );
-                            })}
-                        </SelectContent>
-                    </Select>
-                </div>
-            </div>
-            <div className='space-y-1'>
-                <Label className='font-normal'>API Key</Label>
-                <Input placeholder='EXAMPLE' value={claudeAPIKey} onChange={(e) => setClaudeAPIKey(e.target.value)} />
-            </div>
-            <div className='space-y-3'>
-                <Label className='font-normal'>Temperature: {claudeAPITemperature}</Label>
-                <div className='flex flex-col space-y-1'>
-                    <Slider max={1} step={0.1} value={[claudeAPITemperature]} onValueChange={([e]) => setClaudeAPITemperature(e)} />
-                    <div className='flex justify-between text-xs text-gray-500'>
-                        <p>{t('Stable')}</p>
-                        <p>{t('Standard')}</p>
-                        <p>{t('Creative')}</p>
-                    </div>
-                </div>
-            </div>
-        </>
-    );
-};
-
-const AzureCard = ({
-    azureAPIKey,
-    azureAPIModel,
-    azureAPIEndpoint,
-    azureAPITemperature,
-    azureAPIDeploymentName,
-    setAzureAPIKey,
-    setAzureAPIModel,
-    setAzureAPIEndpoint,
-    setAzureAPITemperature,
-    setAzureAPIDeploymentName,
-}: {
-    azureAPIKey: string;
-    azureAPIModel: string;
-    azureAPIEndpoint: string;
-    azureAPITemperature: number;
-    azureAPIDeploymentName: string;
-    setAzureAPIKey: (azureAPIKey: string) => void;
-    setAzureAPIModel: (azureAPIModel: string) => void;
-    setAzureAPIEndpoint: (azureAPIEndpoint: string) => void;
-    setAzureAPITemperature: (azureAPITemperature: number) => void;
-    setAzureAPIDeploymentName: (azureAPIDeploymentName: string) => void;
-}) => {
-    const t = useTranslations('landing');
-
-    return (
-        <>
-            <Alert>
-                <FiClipboard />
-                <AlertTitle>{t('Goodwill Reminders')}</AlertTitle>
-                <AlertDescription>
-                    You need to provide the{' '}
-                    <Link href='https://dashboard.cohere.ai/api-keys' target='_blank' className='underline'>
-                        Azure API Key
-                    </Link>{' '}
-                    to use this service. Sign up for access{' '}
-                    <Link href='https://aka.ms/oaiapply' target='_blank' className='underline'>
-                        here
-                    </Link>
-                    .
-                </AlertDescription>
-            </Alert>
-            <div className='h-full space-y-3'>
-                <div className='space-y-1'>
-                    <Label className='font-normal'>GPT Model</Label>
-                    <Select value={azureAPIModel} onValueChange={(value) => setAzureAPIModel(value as OpenAIModel)}>
-                        <SelectTrigger>
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {openAIModelConfig.map((model, index) => {
-                                return (
-                                    <SelectItem key={index} value={model.model} className='text-sm'>
-                                        {model.model}
-                                    </SelectItem>
-                                );
-                            })}
-                        </SelectContent>
-                    </Select>
-                </div>
-            </div>
-            <div className='space-y-1'>
-                <Label className='font-normal'>API Key</Label>
-                <Input placeholder='EXAMPLE' value={azureAPIKey} onChange={(e) => setAzureAPIKey(e.target.value)} />
-            </div>
-            <div className='space-y-1'>
-                <Label className='font-normal'>API Endpoint</Label>
-                <Input placeholder='https://xxxxxx.openai.azure.com' value={azureAPIEndpoint} onChange={(e) => setAzureAPIEndpoint(e.target.value)} />
-            </div>
-            <div className='space-y-1'>
-                <Label className='font-normal'>API Deployment Name</Label>
-                <Input placeholder='EXAMPLE' value={azureAPIDeploymentName} onChange={(e) => setAzureAPIDeploymentName(e.target.value)} />
-            </div>
-            <div className='space-y-3'>
-                <Label className='font-normal'>Temperature: {azureAPITemperature}</Label>
-                <div className='flex flex-col space-y-1'>
-                    <Slider max={2} step={0.1} value={[azureAPITemperature]} onValueChange={([e]) => setAzureAPITemperature(e)} />
-                    <div className='flex justify-between text-xs text-gray-500'>
-                        <p>Stable</p>
-                        <p>Standard</p>
-                        <p>Creative</p>
-                    </div>
-                </div>
-            </div>
-        </>
-    );
-};
-
-const CustomCard = () => {
-    const t = useTranslations('landing');
-
-    return (
-        <>
-            <div className='space-y-1'>
-                <Label>API Key</Label>
-                <Input placeholder='fk...' />
-            </div>
-            <div className='space-y-1'>
-                <Label>API Endpoint</Label>
-                <Input placeholder='https://api.example.com' />
-            </div>
-        </>
-    );
-};
-
-const TeamCard = ({ accessCode, setAccessCode }: { accessCode: string; setAccessCode: (accessCode: string) => void }) => {
-    const t = useTranslations('landing');
-
-    return (
-        <>
-            <Alert>
-                <FiClipboard />
-                <AlertTitle>{t('Goodwill Reminders')}</AlertTitle>
-                <AlertDescription>This is a feature for teams. You can create a team in dashboard. However, this feature is only available for fully setup deployment.</AlertDescription>
-            </Alert>
-            <div className='space-y-1'>
-                <Label>Team Access Code</Label>
-                <Input placeholder='Your team code. For example: 625390220.' value={accessCode} onChange={(e) => setAccessCode(e.target.value)} />
-            </div>
-        </>
-    );
-};
-
-const CohereCard = ({
-    cohereAPIKey,
-    cohereModel,
-    setCohereAPIKey,
-    setCohereModel,
-}: {
-    cohereAPIKey: string;
-    cohereModel: string;
-    setCohereAPIKey: (cohereAPIKey: string) => void;
-    setCohereModel: (cohereModel: string) => void;
-}) => {
-    const t = useTranslations('landing');
-
-    return (
-        <>
-            <Alert>
-                <FiClipboard />
-                <AlertTitle>{t('Goodwill Reminders')}</AlertTitle>
-                <AlertDescription>
-                    You need to provide the{' '}
-                    <Link href='https://dashboard.cohere.ai/api-keys' target='_blank' className='underline'>
-                        Cohere API Key
-                    </Link>{' '}
-                    to use this service.
-                </AlertDescription>
-            </Alert>
-            <div className='space-y-1'>
-                <Label className='px-1 font-medium'>Model</Label>
-                <Select value={cohereModel} onValueChange={(value) => setCohereModel(value)}>
-                    <SelectTrigger>
-                        <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {cohereModelConfig.map((model, index) => {
-                            return (
-                                <SelectItem key={index} value={model.model} className='text-sm'>
-                                    {model.model}
-                                </SelectItem>
-                            );
-                        })}
-                    </SelectContent>
-                </Select>
-            </div>
-            <div className='space-y-1'>
-                <Label className='px-1 font-medium'>API Key</Label>
-                <Input placeholder='tlYBXue......' value={cohereAPIKey} onChange={(e) => setCohereAPIKey(e.target.value)} />
-            </div>
-        </>
-    );
-};
-
-const ExtensionCard = ({}: {}) => {
-    const t = useTranslations('landing');
-
-    return (
-        <>
-            <div className='space-y-1'>
-                <Label>{t('Entry Point')}</Label>
-                <Input placeholder='http://localhost:9999' />
-            </div>
-        </>
-    );
-};
+const searchEnginesList = [
+    {
+        name: 'Programmable Search Engine (By Google)',
+        value: 'pse',
+    },
+];
 
 interface serviceProviderProps {
     name: string;
@@ -824,11 +620,6 @@ const serviceProviderList: serviceProviderProps[] = [
     {
         name: 'Custom',
         value: 'Custom',
-        status: 0,
-    },
-    {
-        name: 'Extension',
-        value: 'Extension',
         status: 0,
     },
 ];

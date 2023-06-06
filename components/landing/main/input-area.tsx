@@ -51,7 +51,7 @@ const InputArea = ({
 
     const enablePlugins = useAtomValue(store.enablePluginsAtom);
 
-    const isNoContextConversation = useAtomValue(store.noContextConversationAtom);
+    const contextModeAtom = useAtomValue(store.contextModeAtom);
 
     const { transcript, listening, resetTranscript } = useSpeechRecognition();
     const [isListening, setIsListening] = useState<boolean>(false);
@@ -233,9 +233,9 @@ const InputArea = ({
                                     {t('plugins')}
                                 </Badge>
                             )}
-                            {isNoContextConversation && (
+                            {contextModeAtom.enable && (
                                 <Badge variant='secondary' className='text-xs font-normal'>
-                                    {t('no context')}
+                                    {contextModeAtom.contextCount == 0 ? t('no context') : contextModeAtom.contextCount + ' ' + t('contexts')}
                                 </Badge>
                             )}
                         </>
@@ -243,7 +243,7 @@ const InputArea = ({
                 </div>
                 {waitingSystemResponse ? (
                     <button
-                        className='inline-flex items-center space-x-1 rounded border px-1 text-sm transition duration-200 ease-in-out hover:bg-gray-200 dark:border-stone-500 dark:hover:bg-stone-600'
+                        className='inline-flex items-center space-x-1 rounded border px-1 text-sm transition duration-200 ease-in-out hover:bg-gray-200 dark:border-stone-500 dark:hover:bg-stone-700'
                         onClick={handleStopSystemResponse}
                     >
                         <IoStopCircle />
@@ -252,7 +252,7 @@ const InputArea = ({
                 ) : (
                     conversations.length > 0 && (
                         <button
-                            className='flex items-center space-x-1 rounded border px-1 text-sm transition duration-200 ease-in-out hover:bg-gray-200 dark:border-stone-500 dark:hover:bg-stone-600'
+                            className='flex items-center space-x-1 rounded border px-1 text-sm transition duration-200 ease-in-out hover:bg-gray-200 dark:border-stone-500 dark:hover:bg-stone-700'
                             onClick={handleShareConversation}
                         >
                             <TbShare2 className='dark:text-white' />
@@ -294,14 +294,14 @@ const InputArea = ({
                 <div className='absolute bottom-2 right-2 flex items-center justify-center'>
                     <button
                         onClick={handleVoiceInput}
-                        className='rounded-md bg-transparent p-1 font-bold text-stone-800 transition duration-300 ease-in-out hover:text-stone-400 dark:text-stone-400 dark:hover:text-stone-800'
+                        className='rounded-md bg-transparent p-1 font-bold text-stone-800 transition duration-300 ease-in-out hover:text-stone-400 dark:text-stone-400 dark:hover:text-stone-500'
                         aria-label='Voice Input Button'
                     >
                         {!isListening ? <MdOutlineKeyboardVoice className='text-lg' /> : <MdPause className='text-lg' />}
                     </button>
                     <button
                         onClick={handleSend}
-                        className='rounded-md bg-transparent p-1 font-bold text-stone-800 transition duration-300 ease-in-out hover:text-stone-400 dark:text-stone-400 dark:hover:text-stone-800'
+                        className='rounded-md bg-transparent p-1 font-bold text-stone-800 transition duration-300 ease-in-out hover:text-stone-400 dark:text-stone-400 dark:hover:text-stone-500'
                         aria-label='Send Message Button'
                     >
                         <TbSend className='text-lg' />

@@ -61,7 +61,7 @@
     "Current Model": "Текущая модель",
     "Temperature": "Температура",
     "Stream Messages": "Поток сообщений",
-    "No Context Mode": "Режим без контекста",
+    "Context Mode": "Режим контекста",
     "Plugins": "Плагины",
     "Beta": "Бета",
     "system prompt": "системное предложение",
@@ -97,7 +97,17 @@
     "Copied": "Скопировано",
     "You": "Вы",
     "Please set up the search config first": "Сначала настройте конфигурацию поиска",
-    "You are using": "Вы используете"
+    "You are using": "Вы используете",
+    "contexts": "контексты",
+    "Conversation context length": "Длина контекста разговора",
+    "Unable to fetch content from the URL provided": "Не удалось получить содержимое из предоставленного URL",
+    "Service Provider": "Провайдер услуг",
+    "Explain": "Объяснить",
+    "Convert": "Преобразовать",
+    "Custom": "Пользовательский",
+    "Explain what the code means": "Объясните, что означает код",
+    "Convert the code to a different language": "Преобразовать код на другой язык",
+    "Allow you to create your own custom rule": "Позволяет создавать собственные правила"
   },
   "auth": {
     "Home": "Главная",

@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 
 import { useSearchParams } from 'next/navigation';
 
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 
 import { toast } from 'react-hot-toast';
 
@@ -22,7 +22,6 @@ import ModeSettings from '@/components/landing/main/main-settings';
 import generateHash from '@/utils/app/generateHash';
 
 import { getSearchFromGoogleProgrammableSearchEngine } from '@/utils/plugins/search';
-import { fetchContent } from '@/utils/plugins/fetch_content';
 
 import { User } from '@prisma/client';
 
@@ -37,9 +36,11 @@ const ChatMain = () => {
     const share = searchParams?.get('share');
 
     const t = useTranslations('landing');
+    const locale = useLocale();
 
     // Conversation Config
-    const isNoContextConversation = useAtomValue(store.noContextConversationAtom);
+    const contextModeAtom = useAtomValue(store.contextModeAtom);
+    const { enable: enableContextMode, contextCount } = contextModeAtom;
     const enableStreamMessages = useAtomValue(store.enableStreamMessagesAtom);
     const enablePlugin = useAtomValue(store.enablePluginsAtom);
 
@@ -162,13 +163,9 @@ const ChatMain = () => {
     const handleMessageSend = async (message: AppMessageProps, indexNumber?: number | null, plugin?: PluginProps | null) => {
         setWaitingSystemResponse(true);
 
-        if (!isNoContextConversation) {
-            isSystemPromptEmpty || conversations.find((c) => c.role === 'system')
-                ? setConversations((prev) => [...prev, message])
-                : setConversations((prev) => [{ role: 'system', content: systemPromptContent }, ...prev, message]);
-        } else {
-            isSystemPromptEmpty || conversations.find((c) => c.role === 'system') ? setConversations([message]) : setConversations([{ role: 'system', content: systemPromptContent }, message]);
-        }
+        isSystemPromptEmpty || conversations.find((c) => c.role === 'system')
+            ? setConversations((prev) => [...prev, message])
+            : setConversations((prev) => [{ role: 'system', content: systemPromptContent }, ...prev, message]);
 
         let configPayload;
 
@@ -228,7 +225,11 @@ const ChatMain = () => {
                         toast.error(t('Please set up your Google Programmable Search Engine API Key and Search Engine ID in the settings page'));
                         return;
                     }
-                    pluginResponse = await getSearchFromGoogleProgrammableSearchEngine(searchPluginConfig.searchAPIKey, searchPluginConfig.searchEngineID, message.content);
+
+                    const searchContent = await getSearchFromGoogleProgrammableSearchEngine(searchPluginConfig.searchAPIKey, searchPluginConfig.searchEngineID, message.content);
+
+                    pluginResponse = searchContent;
+
                     pluginPrompt =
                         'I search ' +
                         message.content +
@@ -237,11 +238,19 @@ const ChatMain = () => {
                     break;
                 case 'fetch':
                     const fetchContent = await fetch('/api/plugins/fetch?url=' + message.content).then((res) => res.json());
+
+                    if (fetchContent.status != 200) {
+                        toast.error(t('Unable to fetch content from the URL provided'));
+                        return;
+                    }
+
                     pluginResponse = fetchContent.content;
                     pluginPrompt =
-                        'I fetch content from ' +
+                        'Act as a summarizer. Please summarize ' +
                         message.content +
-                        ' for you. Please let me know what is the main content of this link in details. The following is the content: \n\n\n' +
+                        ' in the ' +
+                        locale +
+                        '. Your summary should capture the most important points and ideas of the original text. Please ensure that your summary is clear, concise, and easy to understand. The following is the content: \n\n\n' +
                         pluginResponse;
                     break;
                 default:
@@ -252,22 +261,33 @@ const ChatMain = () => {
         let messagesPayload: AppMessageProps[] = [];
 
         if (plugin && enablePlugin && pluginResponse && pluginPrompt) {
-            if (!isNoContextConversation) {
+            if (!enableContextMode) {
                 isSystemPromptEmpty || conversations.find((c) => c.role === 'system')
-                    ? (messagesPayload = [...conversations, { role: 'system', content: pluginPrompt }, message])
-                    : (messagesPayload = [{ role: 'system', content: systemPromptContent }, ...conversations, { role: 'system', content: pluginPrompt }, message]);
+                    ? (messagesPayload = [...conversations, { role: 'user', content: pluginPrompt }])
+                    : (messagesPayload = [{ role: 'system', content: systemPromptContent }, ...conversations, { role: 'user', content: pluginPrompt }]);
+            } else if (contextCount == 0) {
+                isSystemPromptEmpty || conversations.find((c) => c.role === 'system')
+                    ? (messagesPayload = [{ role: 'user', content: pluginPrompt }])
+                    : (messagesPayload = [
+                          { role: 'system', content: systemPromptContent },
+                          { role: 'user', content: pluginPrompt },
+                      ]);
             } else {
                 isSystemPromptEmpty || conversations.find((c) => c.role === 'system')
-                    ? (messagesPayload = [{ role: 'system', content: pluginPrompt }, message])
-                    : (messagesPayload = [{ role: 'system', content: systemPromptContent }, { role: 'system', content: pluginPrompt }, message]);
+                    ? (messagesPayload = [...conversations.slice(-contextCount), { role: 'user', content: pluginPrompt }])
+                    : (messagesPayload = [...conversations.slice(-contextCount), { role: 'system', content: systemPromptContent }, { role: 'user', content: pluginPrompt }]);
             }
         } else {
-            if (!isNoContextConversation) {
+            if (!enableContextMode) {
                 isSystemPromptEmpty || conversations.find((c) => c.role === 'system')
                     ? (messagesPayload = [...conversations, message])
                     : (messagesPayload = [{ role: 'system', content: systemPromptContent }, ...conversations, message]);
-            } else {
+            } else if (contextCount == 0) {
                 isSystemPromptEmpty || conversations.find((c) => c.role === 'system') ? (messagesPayload = [message]) : (messagesPayload = [{ role: 'system', content: systemPromptContent }, message]);
+            } else {
+                isSystemPromptEmpty || conversations.find((c) => c.role === 'system')
+                    ? (messagesPayload = [...conversations.slice(-contextCount), message])
+                    : (messagesPayload = [...conversations.slice(-contextCount), { role: 'system', content: systemPromptContent }, message]);
             }
         }
 
@@ -338,7 +358,7 @@ const ChatMain = () => {
 
         setWaitingSystemResponse(false);
 
-        if (!isNoContextConversation) {
+        if (!enableContextMode || contextCount > 0) {
             if (chatTitle == 'Chat') {
                 let currentChatTitle = '';
                 const chatTitlePayload: AppMessageProps[] = [{ role: 'system', content: `Please suggest a title for "${message.content}".` }];
@@ -415,6 +435,9 @@ const ChatMain = () => {
                 });
             }
 
+            const updateEvent = new CustomEvent('localStorageUpdated');
+            window.dispatchEvent(updateEvent);
+
             if (enableSync) {
                 const response = await fetch('/api/user/record', {
                     method: 'POST',
@@ -441,9 +464,6 @@ const ChatMain = () => {
                     return;
                 }
             }
-
-            const updateEvent = new CustomEvent('localStorageUpdated');
-            window.dispatchEvent(updateEvent);
         }
     };
 

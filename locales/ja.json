@@ -61,7 +61,7 @@
     "Current Model": "現在のモデル",
     "Temperature": "温度",
     "Stream Messages": "メッセージをストリームで表示する",
-    "No Context Mode": "コンテキストなしモード",
+    "Context Mode": "コンテキストモード",
     "Plugins": "プラグイン",
     "Beta": "ベータ版",
     "system prompt": "システムプロンプト",
@@ -97,7 +97,17 @@
     "Copied": "再現された",
     "You": "あなた",
     "Please set up the search config first": "まず検索構成を設定してください",
-    "You are using": "あなたは使っています"
+    "You are using": "あなたは使っています",
+    "contexts": "コンテキスト",
+    "Conversation context length": "会話コンテキストの長さ",
+    "Unable to fetch content from the URL provided": "指定されたURLからコンテンツを取得できません",
+    "Service Provider": "サービスプロバイダー",
+    "Explain": "説明する",
+    "Convert": "変換する",
+    "Custom": "カスタム",
+    "Explain what the code means": "コードの意味を説明する",
+    "Convert the code to a different language": "コードを別の言語に変換する",
+    "Allow you to create your own custom rule": "独自のカスタムルールを作成できます"
   },
   "auth": {
     "Home": "ホーム",

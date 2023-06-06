@@ -61,7 +61,7 @@
     "Current Model": "Modèle Actuel",
     "Temperature": "Température",
     "Stream Messages": "Flux de Messages",
-    "No Context Mode": "Mode Sans Contexte",
+    "Context Mode": "Mode Contexte",
     "Plugins": "Plugins",
     "Beta": "Bêta",
     "system prompt": "invite système",
@@ -97,7 +97,17 @@
     "Copied": "Copié",
     "You": "Vous",
     "Please set up the search config first": "Veuillez d'abord configurer la recherche",
-    "You are using": "Vous utilisez"
+    "You are using": "Vous utilisez",
+    "contexts": "contextes",
+    "Conversation context length": "Longueur du contexte de conversation",
+    "Unable to fetch content from the URL provided": "Impossible de récupérer le contenu de l'URL fournie",
+    "Service Provider": "Fournisseur de Services",
+    "Explain": "Expliquer",
+    "Convert": "Convertir",
+    "Custom": "Personnalisé",
+    "Explain what the code means": "Expliquer ce que signifie le code",
+    "Convert the code to a different language": "Convertir le code dans une autre langue",
+    "Allow you to create your own custom rule": "Vous permet de créer votre propre règle personnalisée"
   },
   "auth": {
     "Home": "Accueil",

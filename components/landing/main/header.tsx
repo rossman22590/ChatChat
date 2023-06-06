@@ -6,7 +6,7 @@ import Link from 'next/link';
 
 import { usePathname } from 'next/navigation';
 
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 
 import store from '@/hooks/store';
 import { useAtom } from 'jotai';
@@ -14,7 +14,6 @@ import { useAtom } from 'jotai';
 import { FiLayout, FiCode, FiFile, FiMessageCircle, FiChevronDown } from 'react-icons/fi';
 
 import LandingSide from '@/components/landing/side/side';
-import HeaderSettings from '@/components/landing/main/header-settings';
 
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -23,6 +22,7 @@ const LandingHeader = () => {
     const pathname = usePathname();
 
     const t = useTranslations('landing');
+    const locale = useLocale();
 
     const [isHiddenSideAtom, setIsHiddenSideAtom] = useAtom(store.isHiddenSideAtom);
 
@@ -30,7 +30,7 @@ const LandingHeader = () => {
         setIsHiddenSideAtom(!isHiddenSideAtom);
     };
 
-    const currentMode = ModeList.find((mode) => mode.link === pathname) || ModeList.find((mode) => mode.value === 'chat');
+    const currentMode = ModeList.find((mode) => pathname?.includes(mode.link)) || ModeList.find((mode) => mode.value === 'chat');
 
     const [userInfo, setUserInfo] = useState(null);
 
@@ -54,7 +54,7 @@ const LandingHeader = () => {
                 <div>
                     <div className='hidden md:block'>
                         <button
-                            className='inline-flex items-center space-x-1 rounded p-1 px-1 transition duration-200 ease-in-out hover:bg-gray-200 dark:hover:bg-stone-600'
+                            className='inline-flex items-center space-x-1 rounded p-1 px-1 transition duration-200 ease-in-out hover:bg-gray-200 dark:hover:bg-stone-700'
                             onClick={handleToggleSide}
                             aria-label='Nav'
                         >
@@ -64,7 +64,7 @@ const LandingHeader = () => {
                     <div className='block md:hidden'>
                         <Sheet>
                             <SheetTrigger asChild>
-                                <button className='inline-flex items-center space-x-1 rounded p-1 px-1 transition duration-200 ease-in-out hover:bg-gray-200 dark:hover:bg-stone-600'>
+                                <button className='inline-flex items-center space-x-1 rounded p-1 px-1 transition duration-200 ease-in-out hover:bg-gray-200 dark:hover:bg-stone-700'>
                                     <FiLayout />
                                 </button>
                             </SheetTrigger>
@@ -75,11 +75,10 @@ const LandingHeader = () => {
                     </div>
                 </div>
                 <div className='relative flex items-center space-x-3'>
-                    <HeaderSettings />
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <button
-                                className='inline-flex items-center space-x-1 rounded p-0.5 px-1 transition duration-200 ease-in-out hover:bg-gray-200 dark:hover:bg-stone-600'
+                                className='inline-flex items-center space-x-1 rounded p-0.5 px-1 transition duration-200 ease-in-out hover:bg-gray-200 dark:hover:bg-stone-700'
                                 aria-label='Advanced Configuration Settings'
                             >
                                 {currentMode && <currentMode.icon className='block' />}
@@ -90,7 +89,7 @@ const LandingHeader = () => {
                         <DropdownMenuContent className='transition duration-200 ease-in-out'>
                             {ModeList.map((mode, index) => (
                                 <DropdownMenuItem key={index}>
-                                    <Link href={mode.link} className='inline-flex w-full items-center space-x-1'>
+                                    <Link href={locale + mode.link} className='inline-flex w-full items-center space-x-1'>
                                         <mode.icon className='block' />
                                         <span>{t(mode.title)}</span>
                                     </Link>
